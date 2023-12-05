@@ -38,7 +38,6 @@ class Blog extends Model
     public function getImageUrlAttribute(){
         return asset('/uploads/blog_images/'.$this->image);
     }
-
     public function getHumanReadableCreatedAtAttribute(){
         return $this->created_at->diffForHumans();
     }

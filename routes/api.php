@@ -4,8 +4,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BlogController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Models\Blog;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,30 +24,47 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::post('/auth/register',[AuthController::class,'register']);
-Route::post('/auth/login',[AuthController::class,'login']);
+// These are UnAuthentication routes
+Route::controller(AuthController::class)->group(function () {
+    Route::post('user/register', 'userRegister')->name('user.Register');
+    Route::post('user/login', 'userLogin')->name('user.Login');
 
-Route::get('/auth/user',[AuthController::class,'user'])->middleware('auth:sanctum');
+    Route::get('user/blogsList', [BlogController::class, 'blogsList'])->name('blog.list');
+    Route::get('user/categoryList', [CategoryController::class, 'categoryList'])->name('category.list');
+    Route::get('user/blog/{blog_id}/comments', [CommentController::class, 'commentList'])->name('comment.list');
+});
 
 
-Route::post('/auth/logout',[AuthController::class,'logout'])->middleware('auth:sanctum');
-Route::get('/blogs',[BlogController::class,'list']);
-Route::post('/blogs/create',[BlogController::class,'create'])->middleware('auth:sanctum');
+Route::group(['prefix' => 'user', 'middleware' => ['auth:sanctum']], function () {
 
-Route::get('/blogs/{id}',[BlogController::class,'details']);
-Route::put('/blogs/{id}/update',[BlogController::class,'update'])->middleware('auth:sanctum');
+    Route::controller(AuthController::class)->group(function () {
+        Route::get('profile', 'userProfile')->name('user.Profile');
+        Route::get('logout',  'userLogout')->name('user.Logout');
+    });
 
-Route::delete('/blogs/{id}/delete',[BlogController::class,'delete'])->middleware('auth:sanctum');
+    Route::controller(CategoryController::class)->group(function () {
+        Route::post('categoryCreate', 'categorycreate')->name('category.create');
+        Route::get('categoryDetails/{id}', 'categorydetails')->name('category.details');
+        Route::post('categoryUpdate/{id}', 'categoryUpdate')->name('category.update');
+        Route::delete('categoryDelete/{id}', 'categoryDelete')->name('category.delete');
+    });
 
-Route::post('/blogs/{id}/toggle-like',[BlogController::class,'toggle_like'])->middleware('auth:sanctum');
+    Route::controller(BlogController::class)->group(function () {
+        Route::post('blogCreate', 'blogCreate')->name('blog.create');
+        Route::get('blogDetails/{id}', 'Blogdetails')->name('blog.details');
+        Route::put('blog/{id}/update', 'blogUpdate')->name('blog.update');
+        Route::delete('blog/{id}/delete', 'blogDelete')->name('blog.delete');
+        Route::post('blogs/{id}/toggle-like', 'blogToggleLike')->name('blog.toggle_like');
+    });
 
-Route::post('/blogs/{blog_id}/comments/create',[CommentController::class,'create'])->middleware('auth:sanctum');
+    Route::controller(CommentController::class)->group(function () {
+        Route::post('blog/{blog_id}/comments/create', 'commentCreate')->name('comment.create');
+        Route::put('comment/{comment_id}/update', 'commentUpdate')->name('comment.update');
+        Route::delete('comment/{comment_id}/delete', 'commentDelete')->name('comment.delete');
+    });
 
-Route::get('/blogs/{blog_id}/comments',[CommentController::class,'list']);
-
-Route::put('/comments/{comment_id}/update',[CommentController::class,'update'])->middleware('auth:sanctum');
-Route::delete('/comments/{comment_id}/delete',[CommentController::class,'delete'])->middleware('auth:sanctum');
-
-Route::post('/profile/change-password',[ProfileController::class,'change_password'])->middleware('auth:sanctum');
-
-Route::post('/profile/update-profile',[ProfileController::class,'update_profile'])->middleware('auth:sanctum');
+    Route::controller(ProfileController::class)->group(function () {
+        Route::post('/profile/changePassword', 'changePassword')->name('profile.changePassword');
+        Route::post('/profile/updateProfile', 'updateProfile')->name('profile.updateProfile');
+    });
+});

@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Services\UserApiResponse;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Hash;
-use File;
+
 class ProfileController extends Controller
 {
     public function change_password(Request $request){
@@ -27,15 +29,10 @@ class ProfileController extends Controller
             $user->update([
                 'password'=>Hash::make($request->password)
             ]);
-            return response()->json([
-                'message'=>'Password successfully updated',
-            ],200);
+            return response()->json(UserApiResponse::success('Password successfully updated'),200);
         }else{
-            return response()->json([
-                'message'=>'Old password does not matched',
-            ],400);
+            return response()->json(UserApiResponse::error('Old password does not matched'),400);
         }
-
     }
 
     public function update_profile(Request $request){
@@ -52,7 +49,6 @@ class ProfileController extends Controller
         } 
 
         $user=$request->user();
-
         if($request->hasFile('profile_photo')){
             if($user->profile_photo){
                 $old_path=public_path().'/uploads/profile_images/'.$user->profile_photo;
@@ -60,24 +56,16 @@ class ProfileController extends Controller
                     File::delete($old_path);
                 }
             }
-
             $image_name='profile-image-'.time().'.'.$request->profile_photo->extension();
             $request->profile_photo->move(public_path('/uploads/profile_images'),$image_name);
         }else{
             $image_name=$user->profile_photo;
         }
-
-
         $user->update([
             'name'=>$request->name,
             'profession'=>$request->profession,
             'profile_photo'=>$image_name
         ]);
-
-        return response()->json([
-            'message'=>'Profile successfully updated',
-        ],200);
-
-
+        return response()->json(UserApiResponse::success('Profile successfully updated'),200);
     }
 }
