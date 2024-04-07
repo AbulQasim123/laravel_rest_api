@@ -36,7 +36,6 @@ class BlogRequest extends FormRequest
 
     public function messages()
     {
-
         return [
             'title.required' => 'Blog title is required',
             'title.max' => 'Blog title can not be more than 250 characters',
@@ -58,6 +57,4 @@ class BlogRequest extends FormRequest
             'data'      => $validator->errors()
         ]));
     }
-
-    
 }

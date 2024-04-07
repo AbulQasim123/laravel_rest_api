@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers\Api;
 
+use Exception;
 use App\Models\Blog;
 use App\Models\BlogLike;
 use Illuminate\Http\Request;
 use App\Services\UserApiResponse;
 use App\Http\Requests\BlogRequest;
 use App\Http\Controllers\Controller;
-use Exception;
+use App\Http\Resources\BlogResource;
 use Illuminate\Support\Facades\File;
+use App\Http\Resources\CategoryResource;
 use Illuminate\Support\Facades\Validator;
 
 class BlogController extends Controller
@@ -29,7 +31,7 @@ class BlogController extends Controller
             ]);
             $blog->load('user:id,name,email', 'category:id,name');
 
-            return response()->json(UserApiResponse::success($blog, 'Blog created successfully'), 200);
+            return response()->json(UserApiResponse::success('Blog created successfully'), 200);
         } catch (Exception $e) {
             return response()->json(UserApiResponse::error($e->getMessage(), 'Something went wrong'), 500);
         }
@@ -77,98 +79,115 @@ class BlogController extends Controller
 
     public function Blogdetails($id, Request $request)
     {
-        $blog = Blog::withCount(['comments', 'likes'])->with(['user', 'category'])->where('id', $id)->first();
-        if ($blog) {
-            $user = auth('sanctum')->user();
-            if ($user) {
-                $blog_like = BlogLike::where('blog_id', $blog->id)->where('user_id', $user->id)->first();
-                if ($blog_like) {
-                    $blog->liked_by_current_user = true;
+        try {
+            $blog = Blog::withCount(['comments', 'likes'])->with(['user', 'category'])->where('id', $id)->get();
+            if (!$blog->isEmpty()) {
+                $user = auth('sanctum')->user();
+                if ($user) {
+                    $blog_like = BlogLike::where('blog_id', $blog[0]->id)->where('user_id', $user->id)->get();
+                    if ($blog_like) {
+                        $blog->liked_by_current_user = true;
+                    } else {
+                        $blog->liked_by_current_user = false;
+                    }
                 } else {
                     $blog->liked_by_current_user = false;
                 }
+                $blogDeatil = BlogResource::collection($blog)->map->getBlogDetail();
+                return response()->json(UserApiResponse::success($blogDeatil, 'Blog successfully fetched'), 200);
             } else {
-                $blog->liked_by_current_user = false;
+                return response()->json(UserApiResponse::error('No blog found'), 400);
             }
-            return response()->json(UserApiResponse::success($blog, 'Blog successfully fetched'), 200);
-        } else {
-            return response()->json(UserApiResponse::error('No blog found', 'No blog found'), 400);
+        } catch (Exception $e) {
+            return response()->json(UserApiResponse::error($e->getMessage(), 'Something went wrong'), 500);
         }
     }
 
-    public function blogUpdate($id, Request $request)
+    public function blogUpdate(Request $request, $id)
     {
-        $blog = Blog::with(['user', 'category'])->where('id', $id)->first();
-        if ($blog) {
-            if ($blog->user_id == $request->user()->id) {
-                $validator = Validator::make($request->all(), [
-                    'title' => 'required|max:250',
-                    'short_description' => 'required',
-                    'long_description' => 'required',
-                    'category_id' => 'required',
-                    'image' => 'nullable|image|mimes:jpg,bmp,png'
-                ]);
+        try {
+            $blog = Blog::with(['user:id,name,email,profession', 'category:id,name,is_active'])
+                ->where('id', $id)
+                ->first();
+            if ($blog) {
+                if ($blog->user_id == $request->user()->id) {
+                    $validator = Validator::make($request->all(), [
+                        'title' => 'required|max:250',
+                        'short_description' => 'required',
+                        'long_description' => 'required',
+                        'category_id' => 'required',
+                        'image' => 'nullable|image|mimes:jpg,bmp,png'
+                    ]);
 
-                if ($validator->fails()) {
-                    return response()->json([
-                        'message' => 'Validation errors',
-                        'errors' => $validator->messages()
-                    ], 422);
-                }
-                if ($request->hasFile('image')) {
-                    $image_name = time() . '.' . $request->image->extension();
-                    $request->image->move(public_path('/uploads/blog_images'), $image_name);
-                    $old_path = public_path() . '/uploads/blog_images/' . $blog->image;
-                    if (File::exists($old_path)) {
-                        File::delete($old_path);
+                    if ($validator->fails()) {
+                        return response()->json([
+                            'message' => 'Validation errors',
+                            'errors' => $validator->errors(),
+                        ], 422);
                     }
+                    if ($request->hasFile('image')) {
+                        $image_name = time() . '.' . $request->image->extension();
+                        $request->image->move(public_path('/uploads/blog_images'), $image_name);
+                        $old_path = public_path() . '/uploads/blog_images/' . $blog->image;
+                        if (File::exists($old_path)) {
+                            File::delete($old_path);
+                        }
+                    } else {
+                        $image_name = $blog->image;
+                    }
+                    $blog->update([
+                        'title' => $request->title,
+                        'short_description' => $request->short_description,
+                        'long_description' => $request->long_description,
+                        'category_id' => $request->category_id,
+                        'image' => $image_name
+                    ]);
+                    // $updateBlogDeatil = BlogResource::collection($blog)->map->updateBlogDetail();
+                    return response()->json(UserApiResponse::success($blog, 'Blog successfully updated'), 200);
                 } else {
-                    $image_name = $blog->image;
+                    return response()->json(UserApiResponse::error('Access denied', 'Access denied'), 403);
                 }
-                $blog->update([
-                    'title' => $request->title,
-                    'short_description' => $request->short_description,
-                    'long_description' => $request->long_description,
-                    'category_id' => $request->category_id,
-                    'image' => $image_name
-                ]);
-                return response()->json(UserApiResponse::success($blog, 'Blog successfully updated'), 200);
             } else {
-                return response()->json(UserApiResponse::error('Access denied', 'Access denied'), 403);
+                return response()->json(UserApiResponse::error('No blog found'), 400);
             }
-        } else {
-            return response()->json(UserApiResponse::error('No blog found', 'No blog found'), 400);
+        } catch (Exception $e) {
+            return response()->json(UserApiResponse::error($e->getMessage(), 'Something went wrong'), 500);
         }
     }
 
     public function blogDelete($id, Request $request)
     {
-        $blog = Blog::where('id', $id)->first();
-        if ($blog) {
-            if ($blog->user_id == $request->user()->id) {
-                $old_path = public_path() . '/uploads/blog_images/' . $blog->image;
-                if (File::exists($old_path)) {
-                    File::delete($old_path);
+        try {
+            $blog = Blog::where('id', $id)->first();
+            if ($blog) {
+                if ($blog->user_id == $request->user()->id) {
+                    $old_path = public_path() . '/uploads/blog_images/' . $blog->image;
+                    if (File::exists($old_path)) {
+                        File::delete($old_path);
+                    }
+                    $blog->delete();
+                    return response()->json(UserApiResponse::success('Blog successfully deleted'), 200);
+                } else {
+                    return response()->json(UserApiResponse::error('Access denied', 'Access denied'), 403);
                 }
-                $blog->delete();
-                return response()->json(UserApiResponse::success($blog, 'Blog successfully deleted'), 200);
             } else {
-                return response()->json(UserApiResponse::error('Access denied', 'Access denied'), 403);
+                return response()->json(UserApiResponse::error('No blog found'), 400);
             }
-        } else {
-            return response()->json(UserApiResponse::error('No blog found', 'No blog found'), 400);
+        } catch (Exception $e) {
+            return response()->json(UserApiResponse::error($e->getMessage(), 'Something went wrong'), 500);
         }
     }
 
     public function blogToggleLike($id, Request $request)
     {
-        $blog = Blog::where('id', $id)->first();
+        try {
+            $blog = Blog::where('id', $id)->first();
         if ($blog) {
             $user = $request->user();
             $blog_like = BlogLike::where('blog_id', $blog->id)->where('user_id', $user->id)->first();
             if ($blog_like) {
                 $blog_like->delete();
-                return response()->json(UserApiResponse::success($blog_like, 'Like successfully removed'), 200);
+                return response()->json(UserApiResponse::success('Like successfully removed'), 200);
             } else {
                 BlogLike::create([
                     'blog_id' => $blog->id,
@@ -178,6 +197,9 @@ class BlogController extends Controller
             }
         } else {
             return response()->json(UserApiResponse::error('No blog found', 'No blog found'), 400);
+        }
+        } catch (Exception $e) {
+            return response()->json(UserApiResponse::error($e->getMessage(), 'Something went wrong'), 500);
         }
     }
 }

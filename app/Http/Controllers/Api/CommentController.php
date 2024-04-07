@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CommentRequest;
 use Illuminate\Http\Request;
 use App\Models\Blog;
 use Illuminate\Support\Facades\Validator;
@@ -13,22 +14,11 @@ use Exception;
 class CommentController extends Controller
 {
     // Create comment
-    public function commentCreate($blog_id, Request $request)
+    public function commentCreate($blog_id, CommentRequest $request)
     {
         try {
             $blog = Blog::where('id', $blog_id)->first();
             if ($blog) {
-                $validator = Validator::make($request->all(), [
-                    'message' => 'required',
-                ]);
-
-                if ($validator->fails()) {
-                    return response()->json([
-                        'message' => 'Validation errors',
-                        'errors' => $validator->messages()
-                    ], 422);
-                }
-
                 $comment = Comment::create([
                     'message' => $request->message,
                     'blog_id' => $blog->id,
@@ -74,13 +64,13 @@ class CommentController extends Controller
                     if ($validator->fails()) {
                         return response()->json([
                             'message' => 'Validation errors',
-                            'errors' => $validator->messages()
+                            'errors' => $validator->errors()
                         ], 422);
                     }
                     $comment->update([
                         'message' => $request->message
                     ]);
-                    return response()->json(UserApiResponse::success('Comment successfully updated', $comment), 200);
+                    return response()->json(UserApiResponse::success($comment,'Comment successfully updated'), 200);
                 } else {
                     return response()->json(UserApiResponse::error('Access denied'), 400);
                 }

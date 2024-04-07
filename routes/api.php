@@ -31,7 +31,6 @@ Route::controller(AuthController::class)->group(function () {
 
     Route::get('user/blogsList', [BlogController::class, 'blogsList'])->name('blog.list');
     Route::get('user/categoryList', [CategoryController::class, 'categoryList'])->name('category.list');
-    Route::get('user/blog/{blog_id}/comments', [CommentController::class, 'commentList'])->name('comment.list');
 });
 
 
@@ -52,19 +51,20 @@ Route::group(['prefix' => 'user', 'middleware' => ['auth:sanctum']], function ()
     Route::controller(BlogController::class)->group(function () {
         Route::post('blogCreate', 'blogCreate')->name('blog.create');
         Route::get('blogDetails/{id}', 'Blogdetails')->name('blog.details');
-        Route::put('blog/{id}/update', 'blogUpdate')->name('blog.update');
-        Route::delete('blog/{id}/delete', 'blogDelete')->name('blog.delete');
-        Route::post('blogs/{id}/toggle-like', 'blogToggleLike')->name('blog.toggle_like');
+        Route::post('blogUpdate/{id}', 'blogUpdate')->name('blog.update');
+        Route::delete('blogDelete/{id}', 'blogDelete')->name('blog.delete');
+        Route::post('blogToggleLike/{id}', 'blogToggleLike')->name('blog.toggle_like');
     });
 
     Route::controller(CommentController::class)->group(function () {
-        Route::post('blog/{blog_id}/comments/create', 'commentCreate')->name('comment.create');
-        Route::put('comment/{comment_id}/update', 'commentUpdate')->name('comment.update');
-        Route::delete('comment/{comment_id}/delete', 'commentDelete')->name('comment.delete');
+        Route::post('createComment/{blog_id}', 'commentCreate')->name('comment.create');
+        Route::get('getComment/{comment_id}', 'commentList')->name('comment.list');
+        Route::post('updateComment/{comment_id}', 'commentUpdate')->name('comment.update');
+        Route::delete('deleteComment/{comment_id}', 'commentDelete')->name('comment.delete');
     });
 
     Route::controller(ProfileController::class)->group(function () {
-        Route::post('/profile/changePassword', 'changePassword')->name('profile.changePassword');
-        Route::post('/profile/updateProfile', 'updateProfile')->name('profile.updateProfile');
+        Route::post('changePassword', 'changePassword')->name('profile.changePassword');
+        Route::post('updateProfile', 'updateProfile')->name('profile.updateProfile');
     });
 });
